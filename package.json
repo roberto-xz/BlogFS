@@ -1,0 +1,11 @@
+{
+  "name": "blogfs",
+  "module": "BlogFS.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
