@@ -11,3 +11,9 @@ export interface meta_block_session {
    r_count: Uint32Array;             // quantidade de registros
    r_session_address:BigUint64Array; // endereço inicial da sessão de registros"
 }
+
+export interface meta_register_session {
+    stats: Uint8Array;   //status para soft delete
+    length: Uint32Array; // tamanho do dado
+    r_data_address: BigUint64Array; //endereço onde o dado começa"
+}
