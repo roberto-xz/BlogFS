@@ -9,7 +9,7 @@ export interface meta_block_session {
    label: string;     // (15 bytes UTF-8): identificação do bloco
    stats: Uint8Array; // status (soft delete)
    r_count: Uint32Array;             // quantidade de registros
-   r_session_address:BigUint64Array; // endereço inicial da sessão de registros"
+   r_session_address:Uint32Array; // endereço inicial da sessão de registros"
 }
 
 export interface meta_register_session {

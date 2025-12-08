@@ -1,6 +1,7 @@
 // [~] coded by roberto-xz
 import fs from "fs";
-import { calculate_meta_size, DATA_FILE_HEAD_SIZE, MAX_BLOCKS, MAX_REGISTERS_PER_BLOCK } from "./Limits";
+import { BLOCK_SESSION_LABEL_SIZE, BLOCK_SESSION_SIZE, calculate_meta_size, DATA_FILE_HEAD_SIZE, FILE_HEAD_SIZE, MAX_BLOCKS, MAX_REGISTERS_PER_BLOCK, REGISTER_SESSION_SIZE } from "./Limits";
+import { LimitedBlockReached } from "./Erros";
 
 export class BlogFsCore {
     private meta_buff!:ArrayBuffer;
@@ -74,6 +75,56 @@ export class BlogFsCore {
             console.log('modo remoto ainda não implementado')
             return false;
         }
+    }
+    public createBlock(label:string):any {
+        let block_count = this.meta_view.getUint8(1);
+        
+        if (block_count > MAX_BLOCKS )
+            throw new LimitedBlockReached()
+        
+        // calcula o proximo ploco livre
+        let block_free_addres = FILE_HEAD_SIZE + (block_count*BLOCK_SESSION_SIZE);
+        let block_label = this.stringToArray(label);
+        
+        // escrevendo o label
+        for (let byte=0; byte<BLOCK_SESSION_LABEL_SIZE; byte++) {
+            const char:number = block_label[byte] || 0x00;
+            this.meta_view.setUint8(block_free_addres++,char)
+            
+        }
+
+        //atualiza os metadados
+        const register_init_prefixe:number = (BLOCK_SESSION_SIZE*MAX_BLOCKS)+FILE_HEAD_SIZE;
+        const register_addres:number = register_init_prefixe+(block_count*REGISTER_SESSION_SIZE);
+      
+        this.meta_view.setUint8(1,block_count+1);       // atualiza o contador de blocos
+        this.meta_view.setUint8(block_free_addres,0x00) // status
+        block_free_addres += 1;
+
+        this.meta_view.setUint32(block_free_addres,0x00) //quantidade de registros
+        block_free_addres += 4;
+
+        this.meta_view.setUint32(block_free_addres,register_addres) // endereço do registro
+        this.save_metada_data();
+    }
+
+    public stringToArray(str: string): number[] {
+        let tempr_array: Uint8Array = new TextEncoder().encode(str);
+        let label_array: number[] = [];
+        
+        for (let byte = 0; byte < BLOCK_SESSION_LABEL_SIZE; byte++) {
+            let char: number = tempr_array[byte] || 0x00;
+            label_array[byte] = char;
+        }
+        return label_array;
+    }
+
+     private save_metada_data(): void {
+        fs.writeFileSync(`${this.file_path}_mt.fs`,new Uint8Array(this.meta_buff));
+        
+        const data_file = fs.openSync(`${this.file_path}_dt.fs`, "r+");
+        fs.writeSync(data_file,new Uint8Array(this.data_buff),0,this.data_buff.byteLength,0);
+        fs.closeSync(data_file);
     }
 
     private isRemotePath(path: string): boolean {

@@ -6,13 +6,13 @@ export const FILE_HEAD_SIZE = 1 + 1; // a_byte + b_byte = 2 bytes
 export const BLOCK_SESSION_LABEL_SIZE  = 15; // UTF-8
 export const BLOCK_SESSION_STATS_SIZE  = 1;  // soft delete
 export const BLOCK_SESSION_RCOUNT_SIZE = 4;  // Uint32
-export const BLOCK_SESSION_RADDR_SIZE  = 8;  // BigUint64
+export const BLOCK_SESSION_RADDR_SIZE  = 4;  // Uint32
 
 export const BLOCK_SESSION_SIZE =
   BLOCK_SESSION_LABEL_SIZE +
   BLOCK_SESSION_STATS_SIZE +
   BLOCK_SESSION_RCOUNT_SIZE +
-  BLOCK_SESSION_RADDR_SIZE; // total = 28 bytes
+  BLOCK_SESSION_RADDR_SIZE; // total = 24 bytes
 
 export const REGISTER_INDEX              = 4   // endereço do registro
 export const REGISTER_SESSION_STATS_SIZE = 1;  // soft delete
