@@ -26,6 +26,14 @@ export const REGISTER_SESSION_SIZE =
   REGISTER_SESSION_RADDR_SIZE;  // total = 13 bytes
 
 
+export const DATA_BLOCK_COUNT = 4;  // quantidade de dados armazenados
+export const DATA_BLOCK_ADDRS = 8;  // próximo endereço disponível
+
+export const DATA_FILE_HEAD_SIZE =
+  DATA_BLOCK_COUNT +
+  DATA_BLOCK_ADDRS;
+
+
 export const MAX_BLOCKS = 50;
 export const MAX_REGISTERS_PER_BLOCK = 2000;
 

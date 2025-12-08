@@ -18,3 +18,8 @@ export interface meta_register_session {
     length: Uint32Array; // tamanho do dado
     r_data_address: BigUint64Array; //endereço onde o dado começa"
 }
+
+export interface data_file_head_session {
+    a_byte: Uint32Array;   // quantidade de blocks de dados registrados
+    b_byte: BigInt64Array; // próximo endereço disponível para escrita
+}
