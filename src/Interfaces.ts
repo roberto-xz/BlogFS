@@ -13,6 +13,7 @@ export interface meta_block_session {
 }
 
 export interface meta_register_session {
+    index: Uint32Array;  //índice
     stats: Uint8Array;   //status para soft delete
     length: Uint32Array; // tamanho do dado
     r_data_address: BigUint64Array; //endereço onde o dado começa"
