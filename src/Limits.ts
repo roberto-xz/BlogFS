@@ -23,7 +23,7 @@ export const REGISTER_SESSION_SIZE =
   REGISTER_INDEX +
   REGISTER_SESSION_STATS_SIZE +
   REGISTER_SESSION_LEN_SIZE +
-  REGISTER_SESSION_RADDR_SIZE;  // total = 13 bytes
+  REGISTER_SESSION_RADDR_SIZE;  // total = 17 bytes
 
 
 export const DATA_BLOCK_COUNT = 4;  // quantidade de dados armazenados
