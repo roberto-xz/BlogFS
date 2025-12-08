@@ -31,7 +31,7 @@ export const DATA_BLOCK_ADDRS = 8;  // próximo endereço disponível
 
 export const DATA_FILE_HEAD_SIZE =
   DATA_BLOCK_COUNT +
-  DATA_BLOCK_ADDRS;
+  DATA_BLOCK_ADDRS;  // total 12 bytes
 
 
 export const MAX_BLOCKS = 50;

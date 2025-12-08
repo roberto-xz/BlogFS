@@ -22,6 +22,18 @@ export class BlogFsCore {
                 this.meta_buff = meta_file.buffer.slice(meta_file.byteOffset, meta_file.byteOffset + meta_file.byteLength);
                 this.meta_view = new DataView(this.meta_buff);
              }catch(Error) {throw Error;}
+             
+             // lendo head do arquivo de dados
+             try {
+                const data_file = fs.openSync(`${file_path}_dt.fs`,'r');
+                const temp_buff = Buffer.alloc(DATA_FILE_HEAD_SIZE);
+                fs.readSync(data_file,temp_buff,0,DATA_FILE_HEAD_SIZE,0);
+                fs.closeSync(data_file);
+
+                this.data_buff = temp_buff.buffer.slice(temp_buff.byteOffset,temp_buff.byteOffset + temp_buff.byteLength);
+                this.data_view = new DataView(this.data_buff);
+             }
+             catch(Error) {throw Error}
         }else {
             console.log('modo remoto ainda não implementado')
         }
@@ -52,7 +64,7 @@ export class BlogFsCore {
             this.data_view = new DataView(this.data_buff);
 
             this.data_view.setUint32(0,0x00);
-            this.data_view.setBigUint64(3,BigInt(DATA_FILE_HEAD_SIZE));
+            this.data_view.setBigUint64(4,BigInt(DATA_FILE_HEAD_SIZE));
             try {
                 fs.writeFileSync(`${this.file_path}_dt.fs`,new Uint8Array(this.data_buff));
             }catch(Error){throw Error;}
