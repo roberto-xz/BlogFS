@@ -146,6 +146,21 @@ export class BlogFsCore {
         return false;
     }
 
+    public renameBlock(old_label:string, new_label:string):boolean {
+        let block = this.findBlock(old_label);
+        if (block != null) {
+            let label_array:number[] = this.stringToArray(new_label);
+            let block_offset = block.offset;
+
+            for (let byte=0; byte<BLOCK_SESSION_LABEL_SIZE; byte++) {
+                const char:number = label_array[byte] || 0x00;
+                this.meta_view.setUint8(block_offset++,char)
+            }
+            return true;
+        }
+        return false;
+    }
+
     private stringToArray(str: string): number[] {
         let tempr_array: Uint8Array = new TextEncoder().encode(str);
         let label_array: number[] = [];
