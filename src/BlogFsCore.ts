@@ -175,6 +175,17 @@ export class BlogFsCore {
         return false;
     }
 
+    public findDeletedBlock():block_session | null {
+        let blocks:block_session[] | null = this.listAllBlocks();
+        if ( blocks != null ) {
+            let block_size = blocks.length;
+            for ( let x=0; x<block_size; x++ )
+                if (blocks[x]?.status == 0x01 )
+                    return blocks[x]!;
+        }
+        return null;
+    }
+
     public renameBlock(old_label:string, new_label:string):boolean {
         let block = this.findBlock(old_label);
         if (block != null) {
