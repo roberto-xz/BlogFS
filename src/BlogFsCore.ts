@@ -77,6 +77,7 @@ export class BlogFsCore {
             return false;
         }
     }
+
     public createBlock(label:string):any {
         let block_count = this.meta_view.getUint8(1);
         
@@ -124,10 +125,10 @@ export class BlogFsCore {
                 if (block_found) {
                     block_addres += BLOCK_SESSION_LABEL_SIZE;
                     let status = this.meta_view.getUint8(block_addres);           block_addres+=1; 
-                    let register_length = this.meta_view.getUint32(block_addres); block_addres+=4;
+                    let register_count = this.meta_view.getUint32(block_addres); block_addres+=4;
                     let register_addres = this.meta_view.getUint32(block_addres);
 
-                    return {offset:block_offset,label,status,register_length,register_addres}
+                    return {offset:block_offset,label,status,register_count,register_addres}
                 }
             }
         }

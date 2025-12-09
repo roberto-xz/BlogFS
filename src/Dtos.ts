@@ -6,6 +6,6 @@ export type block_session = {
     status: number;
     offset:  number,
     
-    register_length: number
+    register_count: number
     register_addres: number
 }
