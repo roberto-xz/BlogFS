@@ -135,6 +135,34 @@ export class BlogFsCore {
         return null;
     }
 
+    public listAllBlocks():block_session[] | null {
+        let block_count = this.meta_view.getUint8(1);
+        if (block_count > 0 ) {
+            let blocks:block_session[] = [];
+
+            for (let x=0; x<block_count; x++ ) {
+                let block_addres = FILE_HEAD_SIZE + (x*BLOCK_SESSION_SIZE);
+                let block_offset = block_addres;
+                let block_label:number[]   = []
+                
+                for (let y=0; y<BLOCK_SESSION_LABEL_SIZE; y++)
+                    block_label.push(this.meta_view.getInt8(block_addres+y));
+                
+                block_addres += BLOCK_SESSION_LABEL_SIZE;
+                let status = this.meta_view.getUint8(block_addres);          block_addres+=1; 
+                let register_count = this.meta_view.getUint32(block_addres); block_addres+=4;
+                let register_addres = this.meta_view.getUint32(block_addres);
+
+                blocks.push({
+                    label:  this.arrayToString(block_label),status,
+                    offset:block_offset,register_count,register_addres
+                })
+            }
+            return (blocks.length > 0) ? blocks : null;
+        }
+        return null;
+    }
+
     public deleteBlock(label:string):boolean {
         let block_addres = this.findBlock(label);
         if (block_addres != null) {
@@ -174,9 +202,10 @@ export class BlogFsCore {
     }
 
     private arrayToString(byteArray: number[]): string {
-        const uint8Array = new Uint8Array(byteArray);
+        const end = byteArray.indexOf(0x00);
+        const slice = end === -1 ? byteArray : byteArray.slice(0, end);
         const decoder = new TextDecoder('utf-8');
-        return decoder.decode(uint8Array);
+        return decoder.decode(new Uint8Array(slice));
     }
 
     private save_metada_data(): void {
