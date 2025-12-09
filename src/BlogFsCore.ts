@@ -2,6 +2,7 @@
 import fs from "fs";
 import { BLOCK_SESSION_LABEL_SIZE, BLOCK_SESSION_SIZE, calculate_meta_size, DATA_FILE_HEAD_SIZE, FILE_HEAD_SIZE, MAX_BLOCKS, MAX_REGISTERS_PER_BLOCK, REGISTER_SESSION_SIZE } from "./Limits";
 import { LimitedBlockReached } from "./Erros";
+import type { block_session } from "./Dtos";
 
 export class BlogFsCore {
     private meta_buff!:ArrayBuffer;
@@ -90,22 +91,44 @@ export class BlogFsCore {
         for (let byte=0; byte<BLOCK_SESSION_LABEL_SIZE; byte++) {
             const char:number = block_label[byte] || 0x00;
             this.meta_view.setUint8(block_free_addres++,char)
-            
         }
-
+        
         //atualiza os metadados
         const register_init_prefixe:number = (BLOCK_SESSION_SIZE*MAX_BLOCKS)+FILE_HEAD_SIZE;
-        const register_addres:number = register_init_prefixe+(block_count*REGISTER_SESSION_SIZE);
-      
-        this.meta_view.setUint8(1,block_count+1);       // atualiza o contador de blocos
-        this.meta_view.setUint8(block_free_addres,0x00) // status
-        block_free_addres += 1;
-
-        this.meta_view.setUint32(block_free_addres,0x00) //quantidade de registros
-        block_free_addres += 4;
-
-        this.meta_view.setUint32(block_free_addres,register_addres) // endereço do registro
+        const max_register_bytes:number    = (REGISTER_SESSION_SIZE*MAX_REGISTERS_PER_BLOCK);
+        const register_addres:number       = register_init_prefixe+(block_count*max_register_bytes);
+        
+        this.meta_view.setUint8(1,block_count+1); // atualiza o contador de blocos
+        this.meta_view.setUint8(block_free_addres,0x00);  block_free_addres += 1; // status
+        this.meta_view.setUint32(block_free_addres,0x00); block_free_addres += 4; //quantidade de registros
+        this.meta_view.setUint32(block_free_addres,register_addres) // endereço do registro register_addres
         this.save_metada_data();
+    }
+
+    public findBlock(label:string):block_session | null {
+        let block_count = this.meta_view.getUint8(1);
+        if (block_count > 0 ) {
+            for (let x=0; x<block_count; x++ ) {
+                let block_addres = FILE_HEAD_SIZE + (x*BLOCK_SESSION_SIZE);
+                let block_found:boolean = true;
+                let block_label  = this.stringToArray(label);
+                
+                for (let y=0; y<BLOCK_SESSION_LABEL_SIZE; y++) {
+                    let char_a:number = this.meta_view.getInt8(block_addres+y);
+                    let char_b:number = block_label[y] || 0x00;
+                    if (char_a != char_b){block_found = false; break;}
+                }
+
+                if (block_found) {
+                    block_addres += BLOCK_SESSION_LABEL_SIZE;
+                    let status = this.meta_view.getUint8(block_addres);           block_addres+=1; 
+                    let register_length = this.meta_view.getUint32(block_addres); block_addres+=4;
+                    let register_addres = this.meta_view.getUint32(block_addres);
+                    return {label,status,register_length,register_addres}
+                }
+            }
+        }
+        return null;
     }
 
     public stringToArray(str: string): number[] {
@@ -119,7 +142,13 @@ export class BlogFsCore {
         return label_array;
     }
 
-     private save_metada_data(): void {
+    private arrayToString(byteArray: number[]): string {
+        const uint8Array = new Uint8Array(byteArray);
+        const decoder = new TextDecoder('utf-8');
+        return decoder.decode(uint8Array);
+    }
+
+    private save_metada_data(): void {
         fs.writeFileSync(`${this.file_path}_mt.fs`,new Uint8Array(this.meta_buff));
         
         const data_file = fs.openSync(`${this.file_path}_dt.fs`, "r+");
