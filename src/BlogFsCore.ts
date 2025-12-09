@@ -110,6 +110,8 @@ export class BlogFsCore {
         if (block_count > 0 ) {
             for (let x=0; x<block_count; x++ ) {
                 let block_addres = FILE_HEAD_SIZE + (x*BLOCK_SESSION_SIZE);
+                let block_offset = block_addres;
+
                 let block_found:boolean = true;
                 let block_label  = this.stringToArray(label);
                 
@@ -124,14 +126,27 @@ export class BlogFsCore {
                     let status = this.meta_view.getUint8(block_addres);           block_addres+=1; 
                     let register_length = this.meta_view.getUint32(block_addres); block_addres+=4;
                     let register_addres = this.meta_view.getUint32(block_addres);
-                    return {label,status,register_length,register_addres}
+
+                    return {offset:block_offset,label,status,register_length,register_addres}
                 }
             }
         }
         return null;
     }
 
-    public stringToArray(str: string): number[] {
+    public deleteBlock(label:string):boolean {
+        let block_addres = this.findBlock(label);
+        if (block_addres != null) {
+            let block_status_addr:number = block_addres.offset+BLOCK_SESSION_LABEL_SIZE;
+            this.meta_view.setUint8(block_status_addr,0x01);
+            
+            this.save_metada_data()
+            return true;
+        }
+        return false;
+    }
+
+    private stringToArray(str: string): number[] {
         let tempr_array: Uint8Array = new TextEncoder().encode(str);
         let label_array: number[] = [];
         
