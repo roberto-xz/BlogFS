@@ -1,8 +1,8 @@
 // [~] coded by roberto-xz
 import fs from "fs";
 import { BLOCK_SESSION_LABEL_SIZE, BLOCK_SESSION_SIZE, calculate_meta_size, DATA_FILE_HEAD_SIZE, FILE_HEAD_SIZE, MAX_BLOCKS, MAX_REGISTERS_PER_BLOCK, REGISTER_SESSION_SIZE } from "./Limits";
-import { LimitedBlockReached } from "./Erros";
-import type { block_session } from "./Dtos";
+import { BlockNotFound, BlockWritingRemoved, IndexOutOfRange, LimitedBlockReached, RecordLimitReached } from "./Erros";
+import type { block_session, register_session } from "./Dtos";
 
 export class BlogFsCore {
     private meta_buff!:ArrayBuffer;
@@ -181,17 +181,6 @@ export class BlogFsCore {
         return false;
     }
 
-    public findDeletedBlock():block_session | null {
-        let blocks:block_session[] | null = this.listAllBlocks();
-        if ( blocks != null ) {
-            let block_size = blocks.length;
-            for ( let x=0; x<block_size; x++ )
-                if (blocks[x]?.status == 0x01 )
-                    return blocks[x]!;
-        }
-        return null;
-    }
-
     public renameBlock(old_label:string, new_label:string):boolean {
         let block = this.findBlock(old_label);
         if (block != null) {
@@ -202,13 +191,126 @@ export class BlogFsCore {
                 const char:number = label_array[byte] || 0x00;
                 this.meta_view.setUint8(block_offset++,char)
             }
+
+            this.save_metada_data();
             return true;
         }
         return false;
     }
 
+    public createRegister(block_label:string,data_length:number, data_offset:bigint):void {
+        const block:block_session | null = this.findBlock(block_label);
+        if (block != null) {
+            if ( block.status == 1 ) throw new BlockWritingRemoved();
+            if ( block.register_count > MAX_REGISTERS_PER_BLOCK-1 ) throw new RecordLimitReached();
+            
+            let offset = block.register_addres + (block.register_count*REGISTER_SESSION_SIZE);
+            this.meta_view.setUint8(offset,0x00); offset +=1; // status do registro
+            this.meta_view.setUint32(offset,data_length); offset +=4; // tamanho do dado em bytes
+            this.meta_view.setBigUint64(offset,data_offset); // offset do dado
 
+            let block_register_count_add = (block.offset+BLOCK_SESSION_LABEL_SIZE)+1;
+            this.meta_view.setUint32(block_register_count_add,block.register_count+1); // atualiza quantidade de registros no block
+            this.save_metada_data();
+            return;
+        }
+        throw new BlockNotFound(block_label);
+    }
 
+    public listAllRegister(block_label:string):register_session[] {
+        const block:block_session | null = this.findBlock(block_label);
+        if (block != null) {
+            if ( block.status == 1 ) throw new BlockWritingRemoved();
+
+            let registers:register_session[] = [];
+            for (let x=0; x< block.register_count; x++ ) {
+                let offset = block.register_addres + (x*REGISTER_SESSION_SIZE);
+                let offset_copy = offset;
+
+                let stats  = this.meta_view.getUint8(offset);  offset+=1;
+                let length = this.meta_view.getUint32(offset); offset+=4;
+                let data_address = this.meta_view.getBigUint64(offset);
+
+                registers.push({addres: offset_copy, index: x,stats,length,data_address})
+            }
+
+            return registers;
+        }
+        throw new BlockNotFound(block_label);
+    }
+
+    public getRegister(block_label:string, register_id:number):register_session {
+        const block:block_session | null = this.findBlock(block_label);
+        if (block != null) {
+            if ( block.status == 1 ) throw new BlockWritingRemoved();
+            if (register_id < 0 || register_id > block.register_count-1) 
+                throw new IndexOutOfRange(block.register_count-1,register_id);
+            
+            let offset = block.register_addres + (register_id*REGISTER_SESSION_SIZE);
+            let offset_copy = offset;
+
+            let stats  = this.meta_view.getUint8(offset);  offset+=1;
+            let length = this.meta_view.getUint32(offset); offset+=4;
+            let data_address = this.meta_view.getBigUint64(offset);
+            
+            return {addres: offset_copy, index:register_id,stats,length,data_address}
+        }
+        throw new BlockNotFound(block_label);
+    }
+
+    public updateRegisterLength(block_label:string, register_id:number, data_length:bigint):boolean {
+        const block:block_session | null = this.findBlock(block_label);
+        if (block != null) {
+            if ( block.status == 1 ) throw new BlockWritingRemoved();
+            if (register_id < 0 || register_id > block.register_count-1) 
+                throw new IndexOutOfRange(block.register_count-1,register_id);
+            
+            let offset = block.register_addres + (register_id*REGISTER_SESSION_SIZE)+5;
+            this.meta_view.setBigUint64(offset,data_length);
+            this.save_metada_data();
+            return true;
+        }
+        throw new BlockNotFound(block_label);
+    }
+
+    public deletRegister(block_label:string, register_id:number):boolean {
+        const block:block_session | null = this.findBlock(block_label);
+        if (block != null) {
+            if ( block.status == 1 ) throw new BlockWritingRemoved();
+            if (register_id < 0 || register_id > block.register_count-1) 
+                throw new IndexOutOfRange(block.register_count-1,register_id);
+            
+            let offset = block.register_addres + (register_id*REGISTER_SESSION_SIZE);
+            this.meta_view.setUint8(offset,0x01); 
+            this.save_metada_data();
+            return true;
+        }
+        throw new BlockNotFound(block_label);
+    }
+
+    public findDeletedRegister(block_label:string):number | null {
+        const block:block_session | null = this.findBlock(block_label);
+        if (block != null) {
+            try {
+                const registers:register_session[] = this.listAllRegister(block_label);
+                for (let x=0; x<registers.length; x++)
+                    if (registers[x]?.stats == 1 )
+                        return registers[x]?.addres || null;
+            }catch(Error) {throw Error}
+        }
+        return null;
+    }
+
+    private findDeletedBlock():block_session | null {
+        let blocks:block_session[] | null = this.listAllBlocks();
+        if ( blocks != null ) {
+            let block_size = blocks.length;
+            for ( let x=0; x<block_size; x++ )
+                if (blocks[x]?.status == 0x01 )
+                    return blocks[x]!;
+        }
+        return null;
+    }
 
     private stringToArray(str: string): number[] {
         let tempr_array: Uint8Array = new TextEncoder().encode(str);
