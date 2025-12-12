@@ -202,13 +202,23 @@ export class BlogFsCore {
         const block:block_session | null = this.findBlock(block_label);
         if (block != null) {
             if ( block.status == 1 ) throw new BlockWritingRemoved();
-            if ( block.register_count > MAX_REGISTERS_PER_BLOCK-1 ) throw new RecordLimitReached();
-            
-            let offset = block.register_addres + (block.register_count*REGISTER_SESSION_SIZE);
+            let offset:number;
+
+            if (block.register_count <= MAX_REGISTERS_PER_BLOCK - 1) {
+                offset =  block.register_addres + (block.register_count*REGISTER_SESSION_SIZE);
+            }else {
+                const deleted_offset = this.findDeletedRegister(block_label);
+                 if (deleted_offset == null)
+                    throw new RecordLimitReached();
+                
+                offset = deleted_offset;
+                block.register_count -= 1;
+            }
+        
             this.meta_view.setUint8(offset,0x00); offset +=1; // status do registro
             this.meta_view.setUint32(offset,data_length); offset +=4; // tamanho do dado em bytes
             this.meta_view.setBigUint64(offset,data_offset); // offset do dado
-
+            
             let block_register_count_add = (block.offset+BLOCK_SESSION_LABEL_SIZE)+1;
             this.meta_view.setUint32(block_register_count_add,block.register_count+1); // atualiza quantidade de registros no block
             this.save_metada_data();
