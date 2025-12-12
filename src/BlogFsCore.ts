@@ -78,17 +78,22 @@ export class BlogFsCore {
         }
     }
 
-    public createBlock(label:string):any {
+    public createBlock(label:string):void {
         let block_count = this.meta_view.getUint8(1);
-        
-        if (block_count > MAX_BLOCKS )
-            throw new LimitedBlockReached()
-        
-        // calcula o proximo ploco livre
-        let block_free_addres = FILE_HEAD_SIZE + (block_count*BLOCK_SESSION_SIZE);
-        let block_label = this.stringToArray(label);
-        
+        let block_free_addres = FILE_HEAD_SIZE + (block_count*BLOCK_SESSION_SIZE); // calcula o proximo bloco livre
+
+        if (block_count > MAX_BLOCKS-1 ) {
+            let block_addres = this.findDeletedBlock();
+            if (block_addres != null) {
+                block_free_addres = block_addres.offset;
+                block_count -=1;
+            }
+            else 
+                throw new LimitedBlockReached()
+        }
+    
         // escrevendo o label
+        const block_label = this.stringToArray(label);
         for (let byte=0; byte<BLOCK_SESSION_LABEL_SIZE; byte++) {
             const char:number = block_label[byte] || 0x00;
             this.meta_view.setUint8(block_free_addres++,char)
@@ -98,6 +103,7 @@ export class BlogFsCore {
         const register_init_prefixe:number = (BLOCK_SESSION_SIZE*MAX_BLOCKS)+FILE_HEAD_SIZE;
         const max_register_bytes:number    = (REGISTER_SESSION_SIZE*MAX_REGISTERS_PER_BLOCK);
         const register_addres:number       = register_init_prefixe+(block_count*max_register_bytes);
+        
         
         this.meta_view.setUint8(1,block_count+1); // atualiza o contador de blocos
         this.meta_view.setUint8(block_free_addres,0x00);  block_free_addres += 1; // status
@@ -124,7 +130,7 @@ export class BlogFsCore {
 
                 if (block_found) {
                     block_addres += BLOCK_SESSION_LABEL_SIZE;
-                    let status = this.meta_view.getUint8(block_addres);           block_addres+=1; 
+                    let status = this.meta_view.getUint8(block_addres);          block_addres+=1; 
                     let register_count = this.meta_view.getUint32(block_addres); block_addres+=4;
                     let register_addres = this.meta_view.getUint32(block_addres);
 
@@ -200,6 +206,9 @@ export class BlogFsCore {
         }
         return false;
     }
+
+
+
 
     private stringToArray(str: string): number[] {
         let tempr_array: Uint8Array = new TextEncoder().encode(str);
