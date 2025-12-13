@@ -33,6 +33,19 @@ export class RecordLimitReached extends BlogFsError {
 }
 
 
+//
+
+export class ErrorUpdatingRecords extends BlogFsError {
+    constructor() {
+        super('Cannot update data: new data size exceeds the originally allocated space.');
+    }
+}
+
+export class ErrorCreatingRecord extends BlogFsError {
+    constructor() {
+        super('There was an error creating a record.');
+    }
+}
 
 export class IndexOutOfRange extends BlogFsError {
     constructor(limit:number, index:number) {
