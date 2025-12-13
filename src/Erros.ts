@@ -28,12 +28,21 @@ export class BlockWritingRemoved extends BlogFsError {
 
 export class RecordLimitReached extends BlogFsError {
     constructor() {
-        super("You cannot save more records than the capacity allocated in: MAX_REGISTERS_PER_BLOCK");
+        super("Opps!: You cannot save more records than the capacity allocated in: MAX_REGISTERS_PER_BLOCK");
     }
 }
 
+export class DataLimitReached extends BlogFsError {
+    constructor() {
+        super("Opps!: It is not possible to save data larger than the value defined in: MAX_PAGE_SIZE");
+    }
+}
 
-//
+export class CategoryAlreadyExistsError extends BlogFsError {
+    constructor(category: string) {
+        super(`Oops: Category '${category}' is already in use.`);
+    }
+}
 
 export class ErrorUpdatingRecords extends BlogFsError {
     constructor() {
@@ -50,5 +59,11 @@ export class ErrorCreatingRecord extends BlogFsError {
 export class IndexOutOfRange extends BlogFsError {
     constructor(limit:number, index:number) {
         super(`Index:${index} outside the limit: ${limit}`);
+    }
+}
+
+export class CategoryNotFoundError extends BlogFsError {
+    constructor(category: string) {
+        super(`Oops: Category '${category}' was not found.`);
     }
 }

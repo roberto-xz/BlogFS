@@ -16,10 +16,10 @@ export interface meta_block_session {
 export interface meta_register_session {
     stats: Uint8Array;   //status para soft delete
     length: Uint32Array; // tamanho do dado
-    r_data_address: BigUint64Array; //endereço onde o dado começa"
+    data_page: Uint32Array;  // página do dado
 }
 
 export interface data_file_head_session {
-    a_byte: Uint32Array;   // quantidade de blocks de dados registrados
-    b_byte: BigUint64Array; // próximo endereço disponível para escrita
+    count: Uint32Array; // quantidade de blocks de dados registrados
+    page: Uint32Array; // próximo página disponível para escrita
 }

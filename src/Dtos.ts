@@ -17,10 +17,10 @@ export type register_session = {
     stats: number; 
     length: number;
     data: string;         
-    data_address: bigint;
+    data_page: number;
 }
 
 export type data_head = {
-    data_address: bigint;
+    page: number;
     length: number; 
 }

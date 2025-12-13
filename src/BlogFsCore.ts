@@ -1,7 +1,9 @@
+
 // [~] coded by roberto-xz
+
 import fs from "fs";
-import { BLOCK_SESSION_LABEL_SIZE, BLOCK_SESSION_SIZE, calculate_meta_size, DATA_FILE_HEAD_SIZE, FILE_HEAD_SIZE, MAX_BLOCKS, MAX_REGISTERS_PER_BLOCK, REGISTER_SESSION_SIZE } from "./Limits";
-import { BlockNotFound, BlockWritingRemoved, ErrorCreatingRecord, ErrorUpdatingRecords, IndexOutOfRange, LimitedBlockReached, RecordLimitReached } from "./Erros";
+import { BLOCK_SESSION_LABEL_SIZE, BLOCK_SESSION_SIZE, calculate_meta_size, DATA_FILE_HEAD_SIZE, FILE_HEAD_SIZE, MAX_BLOCKS, MAX_PAGE_SIZE, MAX_REGISTERS_PER_BLOCK, REGISTER_SESSION_SIZE } from "./Limits";
+import { BlockNotFound, BlockWritingRemoved, DataLimitReached, ErrorCreatingRecord, ErrorUpdatingRecords, IndexOutOfRange, LimitedBlockReached, RecordLimitReached } from "./Erros";
 import type { block_session, data_head, register_session } from "./Dtos";
 
 export class BlogFsCore {
@@ -66,7 +68,7 @@ export class BlogFsCore {
             this.data_view = new DataView(this.data_buff);
 
             this.data_view.setUint32(0,0x00);
-            this.data_view.setBigUint64(4,BigInt(DATA_FILE_HEAD_SIZE));
+            this.data_view.setUint32(4,0x00);
             try {
                 fs.writeFileSync(`${this.file_path}_dt.fs`,new Uint8Array(this.data_buff));
             }catch(Error){throw Error;}
@@ -218,7 +220,7 @@ export class BlogFsCore {
             if (  data_meta != null  ) {
                 this.meta_view.setUint8(offset,0x00); offset +=1; // status do registro
                 this.meta_view.setUint32(offset,data_meta.length); offset +=4; // tamanho do dado em bytes
-                this.meta_view.setBigUint64(offset,data_meta.data_address); // offset do dado
+                this.meta_view.setUint32(offset,data_meta.page); // página do dado
             
                 let block_register_count_add = (block.offset+BLOCK_SESSION_LABEL_SIZE)+1;
                 this.meta_view.setUint32(block_register_count_add,block.register_count+1); // atualiza quantidade de registros no block
@@ -243,9 +245,9 @@ export class BlogFsCore {
 
                 let stats  = this.meta_view.getUint8(offset);  offset+=1;
                 let length = this.meta_view.getUint32(offset); offset+=4;
-                let data_address = this.meta_view.getBigUint64(offset);
+                let page = this.meta_view.getUint32(offset);
 
-                registers.push({addres: offset_copy, index: x,stats,length,data_address,data:''})
+                registers.push({addres: offset_copy, index: x,stats,length,data_page: page,data:''})
             }
 
             return registers;
@@ -253,31 +255,34 @@ export class BlogFsCore {
         throw new BlockNotFound(block_label);
     }
 
-    public async getRegister(block_label:string, register_id:number):Promise<register_session> {
+    public async getRegister(block_label:string, register_index:number):Promise<register_session> {
         const block:block_session | null = this.findBlock(block_label);
         if (block != null) {
             if ( block.status == 1 ) throw new BlockWritingRemoved();
-            if (register_id < 0 || register_id > block.register_count-1) 
-                throw new IndexOutOfRange(block.register_count-1,register_id);
+            if (register_index < 0 || register_index > block.register_count-1) 
+                throw new IndexOutOfRange(block.register_count-1,register_index);
             
-            let offset = block.register_addres + (register_id*REGISTER_SESSION_SIZE);
+            let offset = block.register_addres + (register_index*REGISTER_SESSION_SIZE);
             let offset_copy = offset;
 
             let stats  = this.meta_view.getUint8(offset);  offset+=1;
             let length = this.meta_view.getUint32(offset); offset+=4;
-            let data_address = this.meta_view.getBigUint64(offset);
-            const data_buf:Uint8Array | null = await this.getData(length,data_address);
+            let page = this.meta_view.getUint32(offset);
+            const data_buf:Uint8Array | null = await this.getData(length,page);
             let data_str:string = ''    
             
             if (data_buf != null ) 
                 data_str = new TextDecoder().decode(data_buf);
             
-            return {addres: offset_copy, index:register_id,stats,length,data_address, data:data_str}
+            return {addres: offset_copy, index:register_index,stats,length,data_page: page, data:data_str}
         }
         throw new BlockNotFound(block_label);
     }
 
     public async updateRegister(block_label:string, register_id:number, data_buff:Uint8Array):Promise<boolean> {
+        
+        if (data_buff.length > MAX_PAGE_SIZE-1) throw new DataLimitReached();
+        
         const block:block_session | null = this.findBlock(block_label);
         if (block != null) {
             if ( block.status == 1 ) throw new BlockWritingRemoved();
@@ -285,10 +290,7 @@ export class BlogFsCore {
                 throw new IndexOutOfRange(block.register_count-1,register_id);
             
             const register:register_session  = await this.getRegister(block_label,register_id);
-            if (register.length < data_buff.length)
-                throw new ErrorUpdatingRecords();
-            
-            const data_meta = this.updateData(data_buff,register.data_address);
+            const data_meta = this.updateData(data_buff,register.data_page);
             
             let offset = register.addres+1;
             this.meta_view.setUint32(offset,data_meta.length); 
@@ -315,10 +317,14 @@ export class BlogFsCore {
 
     private createData(data_buff:Uint8Array):data_head | null {        
         let data_count = this.data_view.getUint32(0);
-        let data_addrs = this.data_view.getBigUint64(4);
+        let data_page  = this.data_view.getUint32(4);
         
+        if (data_buff.length > MAX_PAGE_SIZE-1) throw new DataLimitReached();
+
         const data_file = fs.openSync(`${this.file_path}_dt.fs`, 'r+');
-        const position = Number(data_addrs);
+        let offset:number = DATA_FILE_HEAD_SIZE+(data_page*MAX_PAGE_SIZE);
+        const position  = Number(offset);
+
         if (!Number.isSafeInteger(position))
             throw new Error("Data offset exceeds safe integer limit");
         
@@ -326,15 +332,17 @@ export class BlogFsCore {
         fs.closeSync(data_file);
 
         this.data_view.setUint32(0,data_count+1);
-        this.data_view.setBigUint64(4,data_addrs+BigInt(data_buff.length));
+        this.data_view.setUint32(4,data_page+1);
         
         return {
-            data_address: data_addrs, 
+            page: data_page, 
             length: data_buff.length 
         };
     }
 
-    private async getData(length:number, offset:bigint):Promise<Uint8Array | null> {
+    private async getData(length:number, page:number):Promise<Uint8Array | null> {
+        let offset = DATA_FILE_HEAD_SIZE+(page*MAX_PAGE_SIZE);
+
         if (this.is_remote == false) {
             const data_file = fs.openSync(`${this.file_path}_dt.fs`, 'r');
             const position = Number(offset);
@@ -346,8 +354,9 @@ export class BlogFsCore {
             fs.closeSync(data_file);
             return buff;
         }
+
         const st = offset;
-        const ed = offset + BigInt(length) - 1n;
+        const ed = offset + length;
         
         const res = await fetch(this.file_path, {
             headers: {Range: `bytes=${st.toString()}-${ed.toString()}`}
@@ -359,8 +368,11 @@ export class BlogFsCore {
         return new Uint8Array(arrayBuffer);
     }
 
-    private updateData(data_buff: Uint8Array, offset: bigint): data_head {
+    private updateData(data_buff: Uint8Array, page: number): data_head {
+        
         const data_file = fs.openSync(`${this.file_path}_dt.fs`, 'r+');
+        let offset = DATA_FILE_HEAD_SIZE+(page*MAX_PAGE_SIZE);
+
         const position = Number(offset);
         if (!Number.isSafeInteger(position))
             throw new Error("Data offset exceeds safe integer limit");
@@ -369,7 +381,7 @@ export class BlogFsCore {
         fs.closeSync(data_file);
 
         return {
-            data_address: offset,
+            page: page,
             length: data_buff.length
         };
     }
