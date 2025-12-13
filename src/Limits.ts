@@ -18,11 +18,13 @@ export const BLOCK_SESSION_SIZE =
 export const REGISTER_SESSION_STATS_SIZE = 1;  // soft delete
 export const REGISTER_SESSION_LEN_SIZE   = 4;  // Uint32
 export const REGISTER_SESSION_PAGE_SIZE  = 4;  // BigUint64
+export const REGISTER_SESSION_META_END   = 4;  // BigUint64
 
 export const REGISTER_SESSION_SIZE =
   REGISTER_SESSION_STATS_SIZE +
   REGISTER_SESSION_LEN_SIZE +
-  REGISTER_SESSION_PAGE_SIZE;  // total = 9 bytes
+  REGISTER_SESSION_META_END +
+  REGISTER_SESSION_PAGE_SIZE;  // total = 13 bytes
 
 
 export const DATA_BLOCK_COUNT= 4;  // quantidade de dados armazenados

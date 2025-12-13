@@ -14,9 +14,10 @@ export interface meta_block_session {
 
 
 export interface meta_register_session {
-    stats: Uint8Array;   //status para soft delete
-    length: Uint32Array; // tamanho do dado
+    stats: Uint8Array;       //status para soft delete
+    length: Uint32Array;     // tamanho do dado
     data_page: Uint32Array;  // página do dado
+    meta_end: Uint32Array;   // onde termina o head dos dados
 }
 
 export interface data_file_head_session {

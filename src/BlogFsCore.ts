@@ -200,7 +200,7 @@ export class BlogFsCore {
         return false;
     }
 
-    public createRegister(block_label:string,data_buff:Uint8Array):void {
+    public createRegister(block_label:string,data_buff:Uint8Array, meta_end:number):void {
         const block:block_session | null = this.findBlock(block_label);
         if (block != null) {
             if ( block.status == 1 ) throw new BlockWritingRemoved();
@@ -220,7 +220,8 @@ export class BlogFsCore {
             if (  data_meta != null  ) {
                 this.meta_view.setUint8(offset,0x00); offset +=1; // status do registro
                 this.meta_view.setUint32(offset,data_meta.length); offset +=4; // tamanho do dado em bytes
-                this.meta_view.setUint32(offset,data_meta.page); // página do dado
+                this.meta_view.setUint32(offset,data_meta.page);   offset +=4; // página do dado
+                this.meta_view.setUint32(offset,meta_end);                     // onde termina os metadados dos dados 
             
                 let block_register_count_add = (block.offset+BLOCK_SESSION_LABEL_SIZE)+1;
                 this.meta_view.setUint32(block_register_count_add,block.register_count+1); // atualiza quantidade de registros no block
@@ -243,11 +244,11 @@ export class BlogFsCore {
                 let offset = block.register_addres + (x*REGISTER_SESSION_SIZE);
                 let offset_copy = offset;
 
-                let stats  = this.meta_view.getUint8(offset);  offset+=1;
-                let length = this.meta_view.getUint32(offset); offset+=4;
-                let page = this.meta_view.getUint32(offset);
-
-                registers.push({addres: offset_copy, index: x,stats,length,data_page: page,data:''})
+                let stats    = this.meta_view.getUint8(offset);  offset+=1;
+                let length   = this.meta_view.getUint32(offset); offset+=4;
+                let page     = this.meta_view.getUint32(offset);   offset+=4
+                let meta_end = this.meta_view.getUint32(offset);
+                registers.push({addres: offset_copy, index: x,stats,length,data_page: page,data:'', meta_end})
             }
 
             return registers;
@@ -265,21 +266,22 @@ export class BlogFsCore {
             let offset = block.register_addres + (register_index*REGISTER_SESSION_SIZE);
             let offset_copy = offset;
 
-            let stats  = this.meta_view.getUint8(offset);  offset+=1;
-            let length = this.meta_view.getUint32(offset); offset+=4;
-            let page = this.meta_view.getUint32(offset);
+            let stats    = this.meta_view.getUint8(offset);  offset+=1;
+            let length   = this.meta_view.getUint32(offset); offset+=4;
+            let page     = this.meta_view.getUint32(offset);   offset+=4
+            let meta_end = this.meta_view.getUint32(offset);
             const data_buf:Uint8Array | null = await this.getData(length,page);
             let data_str:string = ''    
             
             if (data_buf != null ) 
                 data_str = new TextDecoder().decode(data_buf);
             
-            return {addres: offset_copy, index:register_index,stats,length,data_page: page, data:data_str}
+            return {addres: offset_copy, index:register_index,stats,length,data_page: page, data:data_str, meta_end}
         }
         throw new BlockNotFound(block_label);
     }
 
-    public async updateRegister(block_label:string, register_id:number, data_buff:Uint8Array):Promise<boolean> {
+    public async updateRegister(block_label:string, register_id:number, data_buff:Uint8Array, meta_end:number):Promise<boolean> {
         
         if (data_buff.length > MAX_PAGE_SIZE-1) throw new DataLimitReached();
         
@@ -293,7 +295,8 @@ export class BlogFsCore {
             const data_meta = this.updateData(data_buff,register.data_page);
             
             let offset = register.addres+1;
-            this.meta_view.setUint32(offset,data_meta.length); 
+            this.meta_view.setUint32(offset,data_meta.length); offset +=8;
+            this.meta_view.setUint32(offset,meta_end); 
             this.save_metada_data();
             return true;
         }
