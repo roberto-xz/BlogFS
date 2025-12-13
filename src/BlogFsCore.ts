@@ -1,8 +1,8 @@
 // [~] coded by roberto-xz
 import fs from "fs";
 import { BLOCK_SESSION_LABEL_SIZE, BLOCK_SESSION_SIZE, calculate_meta_size, DATA_FILE_HEAD_SIZE, FILE_HEAD_SIZE, MAX_BLOCKS, MAX_REGISTERS_PER_BLOCK, REGISTER_SESSION_SIZE } from "./Limits";
-import { BlockNotFound, BlockWritingRemoved, IndexOutOfRange, LimitedBlockReached, RecordLimitReached } from "./Erros";
-import type { block_session, register_session } from "./Dtos";
+import { BlockNotFound, BlockWritingRemoved, ErrorCreatingRecord, ErrorUpdatingRecords, IndexOutOfRange, LimitedBlockReached, RecordLimitReached } from "./Erros";
+import type { block_session, data_head, register_session } from "./Dtos";
 
 export class BlogFsCore {
     private meta_buff!:ArrayBuffer;
@@ -198,7 +198,7 @@ export class BlogFsCore {
         return false;
     }
 
-    public createRegister(block_label:string,data_length:number, data_offset:bigint):void {
+    public createRegister(block_label:string,data_buff:Uint8Array):void {
         const block:block_session | null = this.findBlock(block_label);
         if (block != null) {
             if ( block.status == 1 ) throw new BlockWritingRemoved();
@@ -210,17 +210,21 @@ export class BlogFsCore {
                 const deleted_offset = this.findDeletedRegister(block_label);
                  if (deleted_offset == null)
                     throw new RecordLimitReached();
-                
+
                 offset = deleted_offset;
                 block.register_count -= 1;
             }
-        
-            this.meta_view.setUint8(offset,0x00); offset +=1; // status do registro
-            this.meta_view.setUint32(offset,data_length); offset +=4; // tamanho do dado em bytes
-            this.meta_view.setBigUint64(offset,data_offset); // offset do dado
+            const data_meta:data_head | null = this.createData(data_buff);
+            if (  data_meta != null  ) {
+                this.meta_view.setUint8(offset,0x00); offset +=1; // status do registro
+                this.meta_view.setUint32(offset,data_meta.length); offset +=4; // tamanho do dado em bytes
+                this.meta_view.setBigUint64(offset,data_meta.data_address); // offset do dado
             
-            let block_register_count_add = (block.offset+BLOCK_SESSION_LABEL_SIZE)+1;
-            this.meta_view.setUint32(block_register_count_add,block.register_count+1); // atualiza quantidade de registros no block
+                let block_register_count_add = (block.offset+BLOCK_SESSION_LABEL_SIZE)+1;
+                this.meta_view.setUint32(block_register_count_add,block.register_count+1); // atualiza quantidade de registros no block
+            }else {
+                throw new ErrorCreatingRecord();}
+            
             this.save_metada_data();
             return;
         }
@@ -241,7 +245,7 @@ export class BlogFsCore {
                 let length = this.meta_view.getUint32(offset); offset+=4;
                 let data_address = this.meta_view.getBigUint64(offset);
 
-                registers.push({addres: offset_copy, index: x,stats,length,data_address})
+                registers.push({addres: offset_copy, index: x,stats,length,data_address,data:''})
             }
 
             return registers;
@@ -249,7 +253,7 @@ export class BlogFsCore {
         throw new BlockNotFound(block_label);
     }
 
-    public getRegister(block_label:string, register_id:number):register_session {
+    public async getRegister(block_label:string, register_id:number):Promise<register_session> {
         const block:block_session | null = this.findBlock(block_label);
         if (block != null) {
             if ( block.status == 1 ) throw new BlockWritingRemoved();
@@ -262,21 +266,32 @@ export class BlogFsCore {
             let stats  = this.meta_view.getUint8(offset);  offset+=1;
             let length = this.meta_view.getUint32(offset); offset+=4;
             let data_address = this.meta_view.getBigUint64(offset);
+            const data_buf:Uint8Array | null = await this.getData(length,data_address);
+            let data_str:string = ''    
             
-            return {addres: offset_copy, index:register_id,stats,length,data_address}
+            if (data_buf != null ) 
+                data_str = new TextDecoder().decode(data_buf);
+            
+            return {addres: offset_copy, index:register_id,stats,length,data_address, data:data_str}
         }
         throw new BlockNotFound(block_label);
     }
 
-    public updateRegisterLength(block_label:string, register_id:number, data_length:bigint):boolean {
+    public async updateRegister(block_label:string, register_id:number, data_buff:Uint8Array):Promise<boolean> {
         const block:block_session | null = this.findBlock(block_label);
         if (block != null) {
             if ( block.status == 1 ) throw new BlockWritingRemoved();
             if (register_id < 0 || register_id > block.register_count-1) 
                 throw new IndexOutOfRange(block.register_count-1,register_id);
             
-            let offset = block.register_addres + (register_id*REGISTER_SESSION_SIZE)+5;
-            this.meta_view.setBigUint64(offset,data_length);
+            const register:register_session  = await this.getRegister(block_label,register_id);
+            if (register.length < data_buff.length)
+                throw new ErrorUpdatingRecords();
+            
+            const data_meta = this.updateData(data_buff,register.data_address);
+            
+            let offset = register.addres+1;
+            this.meta_view.setUint32(offset,data_meta.length); 
             this.save_metada_data();
             return true;
         }
@@ -298,7 +313,69 @@ export class BlogFsCore {
         throw new BlockNotFound(block_label);
     }
 
-    public findDeletedRegister(block_label:string):number | null {
+    private createData(data_buff:Uint8Array):data_head | null {        
+        let data_count = this.data_view.getUint32(0);
+        let data_addrs = this.data_view.getBigUint64(4);
+        
+        const data_file = fs.openSync(`${this.file_path}_dt.fs`, 'r+');
+        const position = Number(data_addrs);
+        if (!Number.isSafeInteger(position))
+            throw new Error("Data offset exceeds safe integer limit");
+        
+        fs.writeSync(data_file, data_buff, 0, data_buff.length, position);
+        fs.closeSync(data_file);
+
+        this.data_view.setUint32(0,data_count+1);
+        this.data_view.setBigUint64(4,data_addrs+BigInt(data_buff.length));
+        
+        return {
+            data_address: data_addrs, 
+            length: data_buff.length 
+        };
+    }
+
+    private async getData(length:number, offset:bigint):Promise<Uint8Array | null> {
+        if (this.is_remote == false) {
+            const data_file = fs.openSync(`${this.file_path}_dt.fs`, 'r');
+            const position = Number(offset);
+            if (!Number.isSafeInteger(position))
+                throw new Error("Data offset exceeds safe integer limit");
+
+            const buff = new Uint8Array(length);
+            fs.readSync(data_file, buff, 0, length, position);
+            fs.closeSync(data_file);
+            return buff;
+        }
+        const st = offset;
+        const ed = offset + BigInt(length) - 1n;
+        
+        const res = await fetch(this.file_path, {
+            headers: {Range: `bytes=${st.toString()}-${ed.toString()}`}
+        });
+
+        if (!res.ok && res.status !== 206) return null;
+        const arrayBuffer = await res.arrayBuffer();
+
+        return new Uint8Array(arrayBuffer);
+    }
+
+    private updateData(data_buff: Uint8Array, offset: bigint): data_head {
+        const data_file = fs.openSync(`${this.file_path}_dt.fs`, 'r+');
+        const position = Number(offset);
+        if (!Number.isSafeInteger(position))
+            throw new Error("Data offset exceeds safe integer limit");
+
+        fs.writeSync(data_file, data_buff, 0, data_buff.length, position);
+        fs.closeSync(data_file);
+
+        return {
+            data_address: offset,
+            length: data_buff.length
+        };
+    }
+    
+    
+    private findDeletedRegister(block_label:string):number | null {
         const block:block_session | null = this.findBlock(block_label);
         if (block != null) {
             try {
