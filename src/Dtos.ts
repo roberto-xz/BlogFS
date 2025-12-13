@@ -15,6 +15,12 @@ export type register_session = {
     addres: number;
     index: number;
     stats: number; 
-    length: number;         
+    length: number;
+    data: string;         
     data_address: bigint;
+}
+
+export type data_head = {
+    data_address: bigint;
+    length: number; 
 }
