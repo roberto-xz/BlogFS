@@ -14,7 +14,7 @@ export class BlogFsCore {
     private data_view!:DataView;
     
     private file_path:string = 'none';
-    private is_remote:Boolean = false;
+    private is_remote:boolean = false;
 
     public async open(file_path:string): Promise<void>{
         this.is_remote = this.isRemotePath(file_path);
@@ -38,8 +38,16 @@ export class BlogFsCore {
                 this.data_view = new DataView(this.data_buff);
              }
              catch(Error) {throw Error}
-        }else {
-            console.log('modo remoto ainda não implementado')
+        } else {
+            this.file_path = file_path;
+            try {
+                //lendo arquivo de metadados
+                const resp_meta = await fetch(`${file_path}_mt.fs`);
+                if ( resp_meta.ok  && resp_meta.status == 200 ) {
+                    this.meta_buff = await resp_meta.arrayBuffer();
+                    this.meta_view = new DataView(this.meta_buff );
+                }  
+            }catch(Error){throw Error;}
         }
     }
 
@@ -363,15 +371,15 @@ export class BlogFsCore {
         }
 
         const st = offset;
-        const ed = offset + length;
+        const ed = offset + length-1;
         
-        const res = await fetch(this.file_path, {
+        const res = await fetch(`${this.file_path}_dt.fs`, {
             headers: {Range: `bytes=${st.toString()}-${ed.toString()}`}
         });
 
         if (!res.ok && res.status !== 206) return null;
         const arrayBuffer = await res.arrayBuffer();
-
+        
         return new Uint8Array(arrayBuffer);
     }
 
@@ -393,7 +401,8 @@ export class BlogFsCore {
         };
     }
     
-    
+    public isRemote(): boolean { return this.is_remote;}
+
     private findDeletedRegister(block_label:string):number | null {
         const block:block_session | null = this.findBlock(block_label);
         if (block != null) {

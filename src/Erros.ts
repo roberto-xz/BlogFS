@@ -14,6 +14,12 @@ export class BlockNotFound extends BlogFsError {
     }
 }
 
+export class isRemotePath extends BlogFsError {
+    constructor() {
+        super('Oops!: This operation is not supported for remote paths.');
+    }
+}
+
 export class LimitedBlockReached extends BlogFsError {
     constructor() {
         super('Oops!: The block limit has been reached.');

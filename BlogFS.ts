@@ -3,7 +3,7 @@
 
 import { BlogFsCore } from "./src/BlogFsCore";
 import type { block_session, Post, register_session } from "./src/Dtos";
-import { CategoryAlreadyExistsError, CategoryNotFoundError, DataLimitReached } from "./src/Erros";
+import { CategoryAlreadyExistsError, CategoryNotFoundError, DataLimitReached, isRemotePath } from "./src/Erros";
 import { MAX_PAGE_SIZE } from "./src/Limits";
 import { normalizeInput } from "./src/Utils";
 
@@ -25,6 +25,7 @@ export class BlogFS {
     }
     
     public createCategorie(categorie:string):void { 
+        if (this.blogfsCore.isRemote()) throw new isRemotePath();
         if (this.listAllCategories().includes(categorie))
             throw new CategoryAlreadyExistsError(categorie);
         
@@ -45,6 +46,8 @@ export class BlogFS {
     }
 
     public renameCategorie(oldName:string, newName: string) {
+        if (this.blogfsCore.isRemote()) throw new isRemotePath();
+
         if (!this.listAllCategories().includes(oldName))
             throw new CategoryNotFoundError(oldName);
 
@@ -55,6 +58,7 @@ export class BlogFS {
     }
 
     public deleteCategorie(categorie:string):boolean {
+        if (this.blogfsCore.isRemote()) throw new isRemotePath();
         if (!this.listAllCategories().includes(categorie))
             throw new CategoryNotFoundError(categorie);
 
@@ -63,6 +67,7 @@ export class BlogFS {
 
 
     public createPost(categorie:string,post:Post):void {
+        if (this.blogfsCore.isRemote()) throw new isRemotePath();
         if (!this.listAllCategories().includes(categorie))
             throw new CategoryNotFoundError(categorie);
         
@@ -204,6 +209,7 @@ export class BlogFS {
     }
 
     public updatePost(categorie:string, post:Post, postId:number) {
+        if (this.blogfsCore.isRemote()) throw new isRemotePath();
         if (!this.listAllCategories().includes(categorie))
             throw new CategoryNotFoundError(categorie);
         
@@ -223,6 +229,7 @@ export class BlogFS {
     }
 
     public deletePost(categorie:string, postId: number):boolean {
+        if (this.blogfsCore.isRemote()) throw new isRemotePath();
         if (!this.listAllCategories().includes(categorie))
             throw new CategoryNotFoundError(categorie);
         
