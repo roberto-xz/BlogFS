@@ -1,108 +1,165 @@
+
+
 # BlogFS
 
-BlogFS é um driver de armazenamento simples e compacto pensado para servir como um VFS (Virtual File System) destinado a blogs e sites que precisam rodar em ambientes que só hospedam sites estáticos (ex.: GitHub Pages, Netlify, Render). A proposta é fornecer uma biblioteca pequena e fácil de usar que apresenta uma API de alto nível para gerenciar "categorias" (blocos) e posts (registros) sobre um formato binário de metadados + páginas de dados, sem necessidade de um servidor dinâmico.
+**BlogFS** é um driver de armazenamento leve e compacto, projetado para funcionar como um VFS (Virtual File System) voltado para blogs e sites de conteúdo que precisam rodar em ambientes **sem backend dinâmico**, como GitHub Pages, Netlify ou Render.
 
-**Objetivo**
+A proposta é oferecer uma biblioteca simples, com uma API de alto nível, capaz de gerenciar **categorias** e **posts** utilizando apenas arquivos binários versionáveis no repositório. O conteúdo é organizado em metadados estruturados e páginas de dados de tamanho fixo, dispensando qualquer banco de dados tradicional.
 
-- Oferecer um sistema de persistência local leve que permita salvar e recuperar posts organizados por categorias.
-- Permitir que projetos estáticos armazenem e atualizem conteúdo estruturado (meta + corpo) usando apenas arquivos estáticos no repositório.
-- Ser simples de integrar como biblioteca em ambientes onde não há backend dinâmico.
+---
 
-Por que usar BlogFS?
-- Pequeno e sem dependências pesadas.
-- Armazenamento binário eficiente usando metadados pré-alocados e páginas de dados.
-- API de alto nível para operações comuns (CRUD de categorias e posts, paginação, busca por metadados).
+## Objetivo
 
-Principais características
-- Camada pública `BlogFS` com métodos para abrir projeto, gerenciar categorias e posts.
-- Camada baixa `BlogFsCore` que gerencia leitura/escrita dos arquivos binários: `*_mt.fs` (metadados) e `*_dt.fs` (dados por página).
-- Tipos (`DTOs`), constantes de layout (`Limits`) e erros customizados (`Erros`) para tratamento claro de falhas.
+O BlogFS foi criado para:
 
-Arquivos gerados
-- `<prefix>_mt.fs` — arquivo de metadados (meta area): cabeçalho + blocos + registros.
-- `<prefix>_dt.fs` — arquivo de dados: blocos de páginas de tamanho fixo para armazenar o conteúdo (meta + body concatenados).
+Permitir persistência local de posts organizados por categorias, sem necessidade de servidor dinâmico.
+Viabilizar a criação e atualização de conteúdo estruturado (metadados + corpo) em projetos estáticos.
+Fornecer uma base simples, previsível e eficiente para blogs, documentações e pequenos CMS baseados em arquivos.
 
-Instalação / configuração
+---
 
-Este repositório fornece os fontes TypeScript e configuração mínima. Para usar localmente:
+## Por que usar o BlogFS?
 
-1. Instale dependências (ex.: com Bun, npm ou pnpm conforme preferência):
+O BlogFS não tenta substituir um banco de dados completo. Ele resolve um problema específico: **conteúdo estruturado em ambientes estáticos**.
+
+Principais vantagens:
+
+Sistema pequeno, direto e sem dependências pesadas.
+Armazenamento binário eficiente com layout fixo e previsível.
+Separação clara entre metadados e dados reais.
+API de alto nível para operações comuns como CRUD, paginação e busca por metadados.
+Arquivos totalmente versionáveis via Git.
+
+---
+
+## Visão geral da arquitetura
+
+O BlogFS é dividido em duas camadas principais.
+
+A camada pública `BlogFS` expõe uma API de alto nível para gerenciamento de categorias e posts, abstraindo totalmente o layout binário.
+
+A camada interna `BlogFsCore` é responsável pela leitura e escrita direta nos arquivos binários, controle de offsets, páginas, limites e consistência dos dados.
+
+O armazenamento é feito em dois arquivos:
+
+`<prefix>_mt.fs` — Arquivo de metadados, contendo cabeçalho, blocos (categorias) e registros (posts).
+`<prefix>_dt.fs` — Arquivo de dados, organizado em páginas de tamanho fixo, onde ficam armazenados os conteúdos reais (meta + body concatenados).
+
+---
+
+## Instalação e uso básico
+
+Este repositório fornece os fontes em TypeScript e uma configuração mínima.
+
+Instale as dependências com o gerenciador de sua preferência:
 
 ```bash
-# exemplo com bun
 bun install
-
-# ou com npm
+# ou
 npm install
 ```
 
-2. Importar e usar `BlogFS` em seu projeto (ex.: TypeScript/ESM):
+Uso básico:
 
 ```ts
 import { BlogFS } from './BlogFS';
 
-const fs = new BlogFS();
-await fs.open('meuprojeto', true); // cria arquivos se não existirem
+const blog = new BlogFS();
+await blog.open('meuprojeto', true);
 ```
 
-API de alto nível (classe `BlogFS`)
+Isso cria (ou abre) os arquivos `meuprojeto_mt.fs` e `meuprojeto_dt.fs`.
 
-- open(path: string, createIfNotExists = true): Promise<Boolean>
-  - Abre os arquivos de projeto (`<path>_mt.fs` e `<path>_dt.fs`). Se `createIfNotExists` for `true`, cria os arquivos caso não existam.
+---
 
-- createCategorie(categorie: string): void
-  - Cria um novo bloco (categoria). Lança `CategoryAlreadyExistsError` se o nome já existir.
+## API de alto nível (`BlogFS`)
 
-- listAllCategories(): string[]
-  - Retorna todas as categorias ativas.
+A classe `BlogFS` fornece métodos prontos para uso em aplicações reais.
 
-- renameCategorie(oldName: string, newName: string)
-  - Renomeia uma categoria existente. Lança `CategoryNotFoundError` ou `CategoryAlreadyExistsError` conforme apropriado.
+Abertura e categorias:
 
-- deleteCategorie(categorie: string): boolean
-  - Marca a categoria como removida (soft delete).
+`open(path: string, createIfNotExists = true)`
+Abre ou cria o projeto.
 
-- createPost(categorie: string, post: Post): void
-  - Cria um post na categoria especificada. `Post` contém `meta_data` e `body_data` (strings). Os dados são normalizados e concatenados em uma única página. Lança `CategoryNotFoundError` ou `DataLimitReached` se ultrapassar limites.
+`createCategorie(categorie: string)`
+Cria uma nova categoria.
 
-- getPost(categorie: string, postId: number): Promise<Post | null>
-  - Recupera um post pelo índice; retorna `null` se o post estiver deletado.
+`listAllCategories()`
+Lista todas as categorias ativas.
 
-- listPostIds(categorie: string): number[]
-  - Lista IDs (índices) de posts ativos na categoria.
+`renameCategorie(oldName, newName)`
+Renomeia uma categoria existente.
 
-- listAllPost(categorie: string): Post[]
-  - Retorna uma lista básica de posts (IDs, sem conteúdo detalhado).
+`deleteCategorie(categorie)`
+Remove uma categoria via soft delete.
 
-- listAllPostOnlyMetaData(categorie: string): Promise<Post[]>
-  - Lê apenas os metadados (meta_data) de cada post — útil para listagens rápidas.
+---
 
-- listPostsByPage(categorie: string, page: number, limit: number): Promise<Post[]>
-  - Pagina resultados de metadados.
+Posts e conteúdo:
 
-- findPostByMeta(categorie: string, predicate: (meta: string) => boolean): Promise<Post[]>
-  - Busca posts cujo `meta` satisfaz o predicado fornecido.
+`createPost(categorie, post)`
+Cria um post dentro de uma categoria. O conteúdo é normalizado, convertido para bytes e armazenado em uma única página.
 
-- countPosts(categorie: string): number
-  - Conta posts ativos na categoria.
+`getPost(categorie, postId)`
+Retorna um post completo (meta + corpo) ou `null` se estiver removido.
 
-- updatePost(categorie: string, post: Post, postId: number)
-  - Atualiza conteúdo do post. Respeita limites de tamanho de página.
+`updatePost(categorie, post, postId)`
+Atualiza um post existente, respeitando os limites de página.
 
-- deletePost(categorie: string, postId: number): boolean
-  - Marca um post como removido (soft delete).
+`deletePost(categorie, postId)`
+Remove um post via soft delete.
 
-Tipos relevantes
-- `Post` — { id: number; meta_data: string; body_data: string }
-- Estruturas internas de `block_session`, `register_session` e `data_head` em `src/Dtos.ts`.
+---
 
-Erros e limites
-- O projeto define erros customizados (ex.: `BlockNotFound`, `DataLimitReached`, `CategoryAlreadyExistsError`, etc.) em `src/Erros.ts`.
-- Parâmetros importantes em `src/Limits.ts`:
-  - `MAX_PAGE_SIZE`: tamanho máximo (em bytes) de uma página de dados (meta+body concatenados).
-  - `MAX_BLOCKS` e `MAX_REGISTERS_PER_BLOCK`: configuram capacidade do espaço de metadados.
+Leitura otimizada e paginação:
 
-Exemplo rápido
+`listPostIds(categorie)`
+Retorna apenas os IDs dos posts ativos.
+
+`listAllPost(categorie)`
+Lista posts sem carregar conteúdo.
+
+`listAllPostOnlyMetaData(categorie)`
+Carrega apenas os metadados, ideal para listagens.
+
+`listPostsByPage(categorie, page, limit)`
+Paginação baseada em metadados.
+
+`findPostByMeta(categorie, predicate)`
+Busca posts filtrando pelo conteúdo dos metadados.
+
+`countPosts(categorie)`
+Conta posts ativos da categoria.
+
+---
+
+## Tipos principais
+
+```ts
+type Post = {
+  id: number;
+  meta_data: string;
+  body_data: string;
+}
+```
+
+Outras estruturas internas como `block_session`, `register_session` e `data_head` estão definidas em `src/Dtos.ts`.
+
+---
+
+## Limites e validações
+
+Os limites estruturais ficam centralizados em `src/Limits.ts`.
+
+`MAX_PAGE_SIZE` define o tamanho máximo de uma página de dados.
+Cada post deve caber inteiramente dentro de uma página.
+Isso simplifica a lógica e evita fragmentação entre páginas.
+
+Erros customizados são definidos em `src/Erros.ts`, cobrindo casos como categorias duplicadas, limites atingidos e tentativas de escrita inválidas.
+
+---
+
+## Exemplo rápido (uso local)
 
 ```ts
 import { BlogFS } from './BlogFS';
@@ -112,19 +169,49 @@ import { BlogFS } from './BlogFS';
   await blog.open('meuprojeto', true);
 
   blog.createCategorie('tech');
-  blog.createPost('tech', { id: 0, meta_data: 'title: Hello', body_data: 'Meu primeiro post' });
+  blog.createPost('tech', {
+    id: 0,
+    meta_data: 'title: Hello World',
+    body_data: 'Meu primeiro post'
+  });
 
   const posts = await blog.listAllPostOnlyMetaData('tech');
   console.log(posts);
 })();
 ```
 
-Boas práticas e limitações
-- O formato é otimizado para projetos estáticos e edição esporádica; não é um banco de dados transacional.
-- Alterações concorrentes em ambientes remotos não são contempladas — o projeto funciona melhor quando o repositório/arquivos são atualizados por um único processo de escrita.
-- Há suporte planejado/placeholder para modo remoto (requests HTTP Range), mas a implementação principal é local (arquivos no disco).
+---
 
-Contribuindo
-- Abra issues para sugestões, erros ou pedidos de recursos.
-- PRs são bem-vindos — prefira mudanças pequenas, testes e documentação.
+## Acesso remoto (leitura)
 
+O projeto já considera suporte a leitura remota via HTTP Range (modo estático).
+
+```ts
+import { BlogFS } from './BlogFS';
+
+(async () => {
+  const blog = new BlogFS();
+  await blog.open('http://127.0.0.1:3000/meuprojeto', true);
+
+  const posts = await blog.listAllPostOnlyMetaData('tech');
+  console.log(posts);
+
+  console.log(await blog.getPost('tech', 0));
+})();
+```
+
+---
+
+## Boas práticas e limitações
+
+O BlogFS é ideal para leitura frequente e escrita controlada.
+Não é um banco transacional e não lida com escrita concorrente.
+Atualizações devem ser feitas por um único processo.
+O foco é simplicidade, previsibilidade e versionamento fácil.
+
+---
+
+## Contribuindo
+
+Issues são bem-vindas para bugs, ideias e melhorias.
+Pull requests são encorajados, especialmente com testes e documentação.
