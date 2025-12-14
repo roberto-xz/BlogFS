@@ -1,0 +1,31 @@
+import type { block_session, register_session } from "./Dtos";
+export declare class BlogFsCore {
+    private meta_buff;
+    private data_buff;
+    private meta_view;
+    private data_view;
+    private file_path;
+    private is_remote;
+    open(file_path: string): Promise<void>;
+    createProjeto(file_path: string): boolean;
+    createBlock(label: string): void;
+    findBlock(label: string): block_session | null;
+    listAllBlocks(): block_session[] | null;
+    deleteBlock(label: string): boolean;
+    renameBlock(old_label: string, new_label: string): boolean;
+    createRegister(block_label: string, data_buff: Uint8Array, meta_end: number): void;
+    listAllRegister(block_label: string): register_session[];
+    getRegister(block_label: string, register_index: number): Promise<register_session>;
+    updateRegister(block_label: string, register_id: number, data_buff: Uint8Array, meta_end: number): Promise<boolean>;
+    deletRegister(block_label: string, register_id: number): boolean;
+    private createData;
+    getData(length: number, page: number): Promise<Uint8Array | null>;
+    private updateData;
+    isRemote(): boolean;
+    private findDeletedRegister;
+    private findDeletedBlock;
+    private stringToArray;
+    private arrayToString;
+    private save_metada_data;
+    private isRemotePath;
+}

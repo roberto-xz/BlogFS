@@ -1,0 +1,18 @@
+export declare const FILE_HEAD_SIZE: number;
+export declare const BLOCK_SESSION_LABEL_SIZE = 15;
+export declare const BLOCK_SESSION_STATS_SIZE = 1;
+export declare const BLOCK_SESSION_RCOUNT_SIZE = 4;
+export declare const BLOCK_SESSION_RADDR_SIZE = 4;
+export declare const BLOCK_SESSION_SIZE: number;
+export declare const REGISTER_SESSION_STATS_SIZE = 1;
+export declare const REGISTER_SESSION_LEN_SIZE = 4;
+export declare const REGISTER_SESSION_PAGE_SIZE = 4;
+export declare const REGISTER_SESSION_META_END = 4;
+export declare const REGISTER_SESSION_SIZE: number;
+export declare const DATA_BLOCK_COUNT = 4;
+export declare const DATA_BLOCK_PAGE = 4;
+export declare const DATA_FILE_HEAD_SIZE: number;
+export declare const MAX_BLOCKS = 50;
+export declare const MAX_PAGE_SIZE: number;
+export declare const MAX_REGISTERS_PER_BLOCK = 2000;
+export declare function calculate_meta_size(blockCount: number, registerPerBlock: number): number;
