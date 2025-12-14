@@ -15,7 +15,7 @@ export type register_session = {
     index: number;
     stats: number; 
     length: number;
-    data: string;         
+    data: Uint8Array | null;         
     data_page: number;
     meta_end: number;
 }
@@ -27,21 +27,8 @@ export type data_head = {
 
 // Dtos da api
 
-export type MetaPost = {
-    id: number;
-    title: string;
-    slug: string;
-    author: string;
-    summary: string;
-    imageUrl: string;
-    viewsCounter: number;
-    creationDate: string;
-    modificationDate:string;
-    other: string;
-    visibility: number;
-}
-
 export type Post = {
-    meta: MetaPost;
-    body: string;
+    id: number;
+    meta_data: string;
+    body_data: string;
 }
