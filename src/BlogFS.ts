@@ -1,11 +1,11 @@
 
 // [~] coded by roberto-xz
 
-import { BlogFsCore } from "./src/BlogFsCore";
-import type { block_session, Post, register_session } from "./src/Dtos";
-import { CategoryAlreadyExistsError, CategoryNotFoundError, DataLimitReached, isRemotePath } from "./src/Erros";
-import { MAX_PAGE_SIZE } from "./src/Limits";
-import { normalizeInput } from "./src/Utils";
+import { BlogFsCore } from "./BlogFsCore";
+import type { block_session, Post, register_session } from "./Dtos";
+import { CategoryAlreadyExistsError, CategoryNotFoundError, DataLimitReached, isRemotePath } from "./Erros";
+import { MAX_PAGE_SIZE } from "./Limits";
+import { normalizeInput } from "./Utils";
 
 export class BlogFS {
     private blogfsCore!: BlogFsCore;
