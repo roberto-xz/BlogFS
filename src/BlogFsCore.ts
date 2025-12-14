@@ -246,9 +246,9 @@ export class BlogFsCore {
 
                 let stats    = this.meta_view.getUint8(offset);  offset+=1;
                 let length   = this.meta_view.getUint32(offset); offset+=4;
-                let page     = this.meta_view.getUint32(offset);   offset+=4
+                let page     = this.meta_view.getUint32(offset);  offset+=4
                 let meta_end = this.meta_view.getUint32(offset);
-                registers.push({addres: offset_copy, index: x,stats,length,data_page: page,data:'', meta_end})
+                registers.push({addres: offset_copy, index: x,stats,length,data_page: page,data:null, meta_end})
             }
 
             return registers;
@@ -268,15 +268,15 @@ export class BlogFsCore {
 
             let stats    = this.meta_view.getUint8(offset);  offset+=1;
             let length   = this.meta_view.getUint32(offset); offset+=4;
-            let page     = this.meta_view.getUint32(offset);   offset+=4
+            let page     = this.meta_view.getUint32(offset); offset+=4;
             let meta_end = this.meta_view.getUint32(offset);
             const data_buf:Uint8Array | null = await this.getData(length,page);
-            let data_str:string = ''    
+            // let data_str:string = ''    
             
-            if (data_buf != null ) 
-                data_str = new TextDecoder().decode(data_buf);
+            // if (data_buf != null ) 
+            //     data_str = new TextDecoder().decode(data_buf);
             
-            return {addres: offset_copy, index:register_index,stats,length,data_page: page, data:data_str, meta_end}
+            return {addres: offset_copy, index:register_index,stats,length,data_page: page, data:data_buf, meta_end}
         }
         throw new BlockNotFound(block_label);
     }
@@ -292,6 +292,10 @@ export class BlogFsCore {
                 throw new IndexOutOfRange(block.register_count-1,register_id);
             
             const register:register_session  = await this.getRegister(block_label,register_id);
+            
+            if (register.stats == 1)
+                return false;
+            
             const data_meta = this.updateData(data_buff,register.data_page);
             
             let offset = register.addres+1;
@@ -343,7 +347,7 @@ export class BlogFsCore {
         };
     }
 
-    private async getData(length:number, page:number):Promise<Uint8Array | null> {
+    public async getData(length:number, page:number):Promise<Uint8Array | null> {
         let offset = DATA_FILE_HEAD_SIZE+(page*MAX_PAGE_SIZE);
 
         if (this.is_remote == false) {
