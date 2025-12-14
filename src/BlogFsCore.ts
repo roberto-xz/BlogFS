@@ -1,7 +1,7 @@
 
 // [~] coded by roberto-xz
 
-import fs from "fs";
+import * as fs from "fs";
 import { BLOCK_SESSION_LABEL_SIZE, BLOCK_SESSION_SIZE, calculate_meta_size, DATA_FILE_HEAD_SIZE, FILE_HEAD_SIZE, MAX_BLOCKS, MAX_PAGE_SIZE, MAX_REGISTERS_PER_BLOCK, REGISTER_SESSION_SIZE } from "./Limits";
 import { BlockNotFound, BlockWritingRemoved, DataLimitReached, ErrorCreatingRecord, ErrorUpdatingRecords, IndexOutOfRange, LimitedBlockReached, RecordLimitReached } from "./Erros";
 import type { block_session, data_head, register_session } from "./Dtos";
