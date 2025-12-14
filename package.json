@@ -1,11 +1,22 @@
 {
   "name": "blogfs",
-  "module": "BlogFS.ts",
+  "version": "0.1.0",
   "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest"
+  "exports": {
+    ".": {
+      "import": "./dist/BlogFS.js",
+      "types": "./dist/BlogFS.d.ts"
+    }
+  },
+  "main": "./dist/BlogFS.js",
+  "types": "./dist/BlogFS.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
   }
 }
